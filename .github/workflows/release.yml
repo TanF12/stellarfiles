@@ -1,0 +1,57 @@
+name: Build and Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-debian:
+    name: Build Debian/Pop!_OS Package (.deb)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libavutil-dev libavformat-dev libavcodec-dev libswscale-dev libavfilter-dev libavdevice-dev clang pkg-config
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      - name: Build .deb
+        run: cargo deb
+
+      - name: Upload .deb to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/debian/*.deb
+
+  build-arch:
+    name: Build Arch Linux Package (.pkg.tar.zst)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update System & Install Dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git rust cargo clang pkgconf ffmpeg
+
+      - name: Build PKGBUILD as non-root user
+        run: |
+          # makepkg refuses to run as root, so we create a temporary build user
+          useradd -m builduser
+          chown -R builduser:builduser .
+          # We use our actual PKGBUILD script!
+          su builduser -c "makepkg -s --noconfirm"
+
+      - name: Upload .pkg.tar.zst to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.pkg.tar.zst"
