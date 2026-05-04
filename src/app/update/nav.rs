@@ -1,5 +1,5 @@
 use crate::app::state::FileApp;
-use crate::types::{Message, NavMsg, SysMsg};
+use crate::types::{Message, NavMsg, SysMsg, UIMsg};
 use cosmic::app::Task;
 use notify::Watcher;
 use rust_i18n::t;
@@ -140,6 +140,20 @@ pub fn handle(app: &mut FileApp, msg: NavMsg) -> Task<Message> {
 
             let new_entries = Arc::new(entries);
             let mut tasks = vec![app.sort_and_filter_entries(new_entries.clone())];
+
+            let folder_name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Root".into());
+            let title_string = format!("{} — Stellarfiles", folder_name);
+
+            tasks.push(Task::perform(
+                async move {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    title_string
+                },
+                |t| cosmic::Action::App(Message::UI(UIMsg::UpdateWindowTitle(t))),
+            ));
 
             if let Some(&(scroll, cursor)) = app.ui.path_history.get(&path) {
                 app.ui.scroll_offset = scroll;

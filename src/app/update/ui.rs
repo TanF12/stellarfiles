@@ -5,6 +5,7 @@ use std::time::Duration;
 
 pub fn handle(app: &mut FileApp, msg: UIMsg) -> Task<Message> {
     match msg {
+        UIMsg::UpdateWindowTitle(title) => app.core.set_title(None, title),
         UIMsg::CloseAllModals => {
             app.ui.close_modals();
             Task::none()

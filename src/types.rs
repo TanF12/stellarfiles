@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-pub const UI_TOP_BAR_HEIGHT: f32 = 48.0;
-pub const UI_HEADER_HEIGHT: f32 = 32.0;
+pub const UI_TOP_BAR_HEIGHT: f32 = 55.0;
+pub const UI_HEADER_HEIGHT: f32 = 35.0;
 pub const UI_ROW_HEIGHT: f32 = 36.0;
 pub const UI_SIDEBAR_WIDTH: f32 = 200.0;
 pub const UI_SIDEBAR_PADDING_TOP: f32 = 12.0;
@@ -58,7 +58,7 @@ pub struct FileEntry {
     pub path: PathBuf,
     pub name: Arc<str>,
     pub grid_name: Arc<str>,
-    pub list_name: Arc<str>,
+    //pub list_name: Arc<str>,
     pub is_dir: bool,
     pub size_bytes: u64,
     pub modified: std::time::SystemTime,
@@ -189,6 +189,7 @@ pub enum FileMsg {
 
 #[derive(Clone, Debug)]
 pub enum UIMsg {
+    UpdateWindowTitle(String),
     CloseAllModals,
     ToggleSidebar,
     ToggleSidebarNode(PathBuf),

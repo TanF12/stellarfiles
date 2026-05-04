@@ -117,7 +117,7 @@ impl cosmic::Application for FileApp {
     type Executor = cosmic::executor::Default;
     type Flags = AppFlags;
     type Message = Message;
-    const APP_ID: &'static str = "org.freedesktop.impl.portal.desktop.stellarfiles";
+    const APP_ID: &'static str = "stellarfiles";
 
     fn core(&self) -> &Core {
         &self.core

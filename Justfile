@@ -24,12 +24,12 @@ test:
 install-local: build-release
     mkdir -p ~/.local/bin ~/.local/share/applications ~/.local/share/dbus-1/services ~/.local/share/xdg-desktop-portal/portals ~/.config/xdg-desktop-portal
     install -Dm755 target/release/stellarfiles ~/.local/bin/stellarfiles
-    install -Dm644 stellarfiles.desktop ~/.local/share/applications/stellarfiles.desktop
+    install -Dm644 org.freedesktop.impl.portal.desktop.stellarfiles.desktop ~/.local/share/applications/org.freedesktop.impl.portal.desktop.stellarfiles.desktop
     install -Dm644 stellarfiles.portal ~/.local/share/xdg-desktop-portal/portals/stellarfiles.portal
     
     printf "[D-BUS Service]\nName=org.freedesktop.impl.portal.desktop.stellarfiles\nExec=%s/.local/bin/stellarfiles\n" "$HOME" > ~/.local/share/dbus-1/services/org.freedesktop.impl.portal.desktop.stellarfiles.service
     
-    xdg-mime default stellarfiles.desktop inode/directory
+    xdg-mime default org.freedesktop.impl.portal.desktop.stellarfiles.desktop inode/directory
     update-desktop-database ~/.local/share/applications || true
     
     touch ~/.config/xdg-desktop-portal/portals.conf
@@ -53,7 +53,7 @@ install-local: build-release
 
 uninstall-local:
     rm -f ~/.local/bin/stellarfiles
-    rm -f ~/.local/share/applications/stellarfiles.desktop
+    rm -f ~/.local/share/applications/org.freedesktop.impl.portal.desktop.stellarfiles.desktop
     rm -f ~/.local/share/xdg-desktop-portal/portals/stellarfiles.portal
     rm -f ~/.local/share/dbus-1/services/org.freedesktop.impl.portal.desktop.stellarfiles.service
     sed -i '/org.freedesktop.impl.portal.FileChooser=stellarfiles/d' ~/.config/xdg-desktop-portal/portals.conf || true
@@ -65,18 +65,18 @@ uninstall-local:
 install-system: build-release
     @if [ "$EUID" -ne 0 ]; then echo "Please run as root (sudo just install-system)"; exit 1; fi
     install -Dm755 target/release/stellarfiles {{PREFIX}}/bin/stellarfiles
-    install -Dm644 stellarfiles.desktop /usr/share/applications/stellarfiles.desktop
+    install -Dm644 org.freedesktop.impl.portal.desktop.stellarfiles.desktop /usr/share/applications/org.freedesktop.impl.portal.desktop.stellarfiles.desktop
     install -Dm644 org.freedesktop.impl.portal.desktop.stellarfiles.service /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.stellarfiles.service
     install -Dm644 stellarfiles.portal /usr/share/xdg-desktop-portal/portals/stellarfiles.portal
     
     update-desktop-database /usr/share/applications || true
     @echo "System installation complete."
-    @echo "Note: Run 'xdg-mime default stellarfiles.desktop inode/directory' and 'systemctl --user restart xdg-desktop-portal' without sudo to apply to your user."
+    @echo "Note: Run 'xdg-mime default org.freedesktop.impl.portal.desktop.stellarfiles.desktop inode/directory' and 'systemctl --user restart xdg-desktop-portal' without sudo to apply to your user."
 
 uninstall-system:
     @if[ "$EUID" -ne 0 ]; then echo "Please run as root (sudo just uninstall-system)"; exit 1; fi
     rm -f {{PREFIX}}/bin/stellarfiles
-    rm -f /usr/share/applications/stellarfiles.desktop
+    rm -f /usr/share/applications/org.freedesktop.impl.portal.desktop.stellarfiles.desktop
     rm -f /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.stellarfiles.service
     rm -f /usr/share/xdg-desktop-portal/portals/stellarfiles.portal
     update-desktop-database /usr/share/applications || true
