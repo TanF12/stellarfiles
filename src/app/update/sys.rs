@@ -65,7 +65,16 @@ pub fn handle(app: &mut FileApp, msg: SysMsg) -> Task<Message> {
         SysMsg::WindowResized(w, h) => {
             app.ui.window_width = w;
             app.ui.window_height = h;
-            Task::none()
+
+            let folder_name = app
+                .fs
+                .current_dir
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Root".into());
+
+            app.core
+                .set_title(None, format!("{} — Stellarfiles", folder_name))
         }
         SysMsg::StartMarquee => {
             app.ui.close_modals();

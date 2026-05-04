@@ -84,7 +84,6 @@ pub fn create_entry(path: PathBuf, metadata: std::fs::Metadata) -> FileEntry {
     FileEntry {
         path: path.clone(),
         grid_name: truncate_text(&name_str, 10).into(),
-        list_name: truncate_text(&name_str, 80).into(),
         name: name_str.into(),
         is_dir,
         size_bytes,
