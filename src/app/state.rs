@@ -140,7 +140,7 @@ impl cosmic::Application for FileApp {
         let app = FileApp {
             core,
             fs: FileSystemState {
-                current_dir: home.clone(),
+                current_dir: flags.start_path.clone(),
                 history_back: Vec::new(),
                 history_forward: Vec::new(),
                 entries: Arc::new(Vec::new()),
@@ -243,7 +243,7 @@ impl cosmic::Application for FileApp {
             notify_rx: Some(notify_rx),
         };
 
-        let start_dir = app.fs.current_dir.clone();
+        let start_dir = flags.start_path.clone();
         let init_task = cosmic::app::Task::perform(async move { start_dir }, |p| {
             cosmic::Action::App(Message::Nav(NavMsg::Navigate(p)))
         });
