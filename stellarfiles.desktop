@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Stellarfiles
+Comment=File Manager for Cosmic
+Exec=stellarfiles %U
+Icon=system-file-manager
+Terminal=false
+Type=Application
+Categories=System;Utility;Core;GNOME;GTK;FileTools;FileManager;
+MimeType=inode/directory;

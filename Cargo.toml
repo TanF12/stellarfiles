@@ -1,0 +1,42 @@
+[package]
+name = "stellarfiles"
+version = "0.2.0"
+edition = "2024"
+
+[dependencies]
+cosmic = { package = "libcosmic", git = "https://github.com/pop-os/libcosmic" }
+tokio = { version = "1", features = ["full", "rt-multi-thread"] }
+rayon = "1.10"
+zbus = { version = "5", features = ["tokio"] } 
+trash = "5.2.6"
+thiserror = "2"
+open = "5"
+sysinfo = "0.38.4"
+anyhow = "1"
+notify = "8"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+lru = "0.18.0"
+fuzzy-matcher = "0.3"
+regex = "1"
+chrono = "0.4"
+dirs = "6"
+walkdir = "2"
+rand = "0.10.1"
+async-channel = "2"
+flate2 = "1.0"
+tar = "0.4"
+zip = "8.6.0"
+libc = "0.2"
+nix = { version = "0.31.2", features = ["fs", "zerocopy"] }
+memmap2 = "0.9"
+mime_guess = "2.0"
+sys-locale = "0.3"
+rust-i18n = "4.0.0"
+md-5 = "0.11.0"
+sevenz-rust = "0.6.1"
+zstd = "0.13"
+ffmpeg-next = "8.1.0"
+pdfium-render = "0.9.1"
+
+[dev-dependencies]
+tempfile = "3.0"

@@ -1,0 +1,4 @@
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.stellarfiles
+Interfaces=org.freedesktop.impl.portal.FileChooser;
+UseIn=cosmic;gnome;kde;sway;wlroots;*
