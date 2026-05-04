@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Stellarfiles
 Comment=File Manager for Cosmic
-Exec=stellarfiles %U
+Exec=sh -c "$HOME/.local/bin/stellarfiles %U"
 Icon=system-file-manager
 Terminal=false
 Type=Application

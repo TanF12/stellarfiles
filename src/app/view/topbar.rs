@@ -8,13 +8,11 @@ use rust_i18n::t;
 
 pub fn render(app: &FileApp) -> Element<'_, Message> {
     let mut top_actions = row![];
-    if app.ui.mode == Mode::Manager {
-        top_actions = top_actions.push(
-            button::custom(icon::from_name("navbar-open-symbolic"))
-                .class(ButtonClass::Standard)
-                .on_press(Message::UI(UIMsg::ToggleSidebar)),
-        );
-    }
+    top_actions = top_actions.push(
+        button::custom(icon::from_name("navbar-open-symbolic"))
+            .class(ButtonClass::Standard)
+            .on_press(Message::UI(UIMsg::ToggleSidebar)),
+    );
 
     top_actions = top_actions
         .push(

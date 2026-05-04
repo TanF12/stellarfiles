@@ -88,7 +88,7 @@ fn render_tree_node<'a>(
 }
 
 pub fn render<'a>(app: &'a FileApp, best_match_path: Option<PathBuf>) -> Element<'a, Message> {
-    if !app.ui.sidebar_visible || app.ui.mode != Mode::Manager {
+    if !app.ui.sidebar_visible {
         return container(cosmic::iced::widget::Space::new())
             .width(Length::Fixed(0.0))
             .into();

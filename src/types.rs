@@ -2,10 +2,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-pub const UI_TOP_BAR_HEIGHT: f32 = 60.0;
-pub const UI_HEADER_HEIGHT: f32 = 40.0;
-pub const UI_ROW_HEIGHT: f32 = 44.0;
-pub const UI_SIDEBAR_WIDTH: f32 = 240.0;
+pub const UI_TOP_BAR_HEIGHT: f32 = 48.0;
+pub const UI_HEADER_HEIGHT: f32 = 32.0;
+pub const UI_ROW_HEIGHT: f32 = 36.0;
+pub const UI_SIDEBAR_WIDTH: f32 = 200.0;
 pub const UI_SIDEBAR_PADDING_TOP: f32 = 12.0;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -26,6 +26,7 @@ pub enum ViewMode {
 pub struct AppFlags {
     pub mode: Mode,
     pub portal_rx: async_channel::Receiver<PortalRequest>,
+    pub start_path: PathBuf,
 }
 
 #[derive(Clone, Debug)]
