@@ -54,6 +54,11 @@ pub fn render(app: &FileApp) -> Element<'_, Message> {
             && let Some(entry) = app.fs.entries.get(entry_idx)
         {
             let is_selected = app.fs.selected_files.contains(&entry.path);
+            let is_drop_target = app.ui.is_dragging_items
+                && app.ui.hovered_row == Some(idx)
+                && entry.is_dir
+                && !app.fs.selected_files.contains(&entry.path);
+
             let is_hovered = app.ui.hovered_row == Some(idx)
                 && !app.ui.is_dragging_marquee
                 && !app.ui.is_dragging_items
@@ -74,14 +79,19 @@ pub fn render(app: &FileApp) -> Element<'_, Message> {
                     .into();
             }
 
-            let name_str = if is_grid {
-                &entry.grid_name
+            let display_name = if is_grid {
+                entry.grid_name.to_string()
             } else {
-                &entry.list_name
+                let available_w = (list_w - 480.0).max(50.0);
+                let max_chars = (available_w / 7.5) as usize;
+
+                crate::app::view::truncate_text(&entry.name, max_chars)
             };
 
+            let safe_name = display_name.replace(" ", "\u{00A0}");
+
             let mut text_item = row![
-                text(name_str.as_ref())
+                text(safe_name)
                     .width(Length::Fill)
                     .align_x(if is_grid {
                         Alignment::Center
@@ -137,6 +147,8 @@ pub fn render(app: &FileApp) -> Element<'_, Message> {
                         FileApp::active_color_style(theme, 0.15)
                     } else if is_hovered {
                         FileApp::active_color_style(theme, 0.05)
+                    } else if is_drop_target {
+                        FileApp::active_color_style(theme, 0.25)
                     } else {
                         iced_container::Style::default()
                     }
