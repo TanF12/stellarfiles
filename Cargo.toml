@@ -11,7 +11,7 @@ zbus = { version = "5", features = ["tokio"] }
 trash = "5.2.6"
 thiserror = "2"
 open = "5"
-sysinfo = "0.38.4"
+sysinfo = "0.39.0"
 anyhow = "1"
 notify = "8"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
