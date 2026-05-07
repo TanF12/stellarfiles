@@ -80,18 +80,16 @@ pub fn render(app: &FileApp) -> Element<'_, Message> {
             }
 
             let display_name = if is_grid {
-                entry.grid_name.to_string()
+                crate::app::view::truncate_text(&entry.name, 15)
             } else {
-                let available_w = (list_w - 480.0).max(50.0);
-                let max_chars = (available_w / 7.5) as usize;
+                let available_w = (list_w - 400.0).max(30.0);
+                let max_chars = (available_w / 8.0) as usize;
 
                 crate::app::view::truncate_text(&entry.name, max_chars)
             };
 
-            let safe_name = display_name.replace(" ", "\u{00A0}");
-
             let mut text_item = row![
-                text(safe_name)
+                text(display_name)
                     .width(Length::Fill)
                     .align_x(if is_grid {
                         Alignment::Center
