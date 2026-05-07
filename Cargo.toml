@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 cosmic = { package = "libcosmic", git = "https://github.com/pop-os/libcosmic" }
-tokio = { version = "1", features = ["full", "rt-multi-thread"] }
+tokio = { version = "1.52.1", features = ["full", "rt-multi-thread"] }
 rayon = "1.10"
 zbus = { version = "5", features = ["tokio"] } 
 trash = "5.2.6"
