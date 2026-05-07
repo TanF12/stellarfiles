@@ -4,4 +4,3 @@ pub mod delete;
 pub mod read;
 pub mod rename;
 pub mod shred;
-pub mod watcher;

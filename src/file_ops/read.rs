@@ -54,23 +54,6 @@ pub fn resolve_icon(path: &Path, is_dir: bool) -> &'static str {
     }
 }
 
-fn truncate_text(s: &str, max: usize) -> String {
-    let count = s.chars().count();
-    if count > max {
-        let available = max.saturating_sub(3);
-        if available == 0 {
-            return "...".to_string();
-        }
-        let keep_front = (available / 2) + (available % 2);
-        let keep_back = available / 2;
-        let first: String = s.chars().take(keep_front).collect();
-        let last: String = s.chars().skip(count - keep_back).collect();
-        format!("{}...{}", first, last)
-    } else {
-        s.to_string()
-    }
-}
-
 pub fn create_entry(path: PathBuf, metadata: std::fs::Metadata) -> FileEntry {
     let is_dir = metadata.is_dir();
     let size_bytes = metadata.len();
@@ -83,7 +66,6 @@ pub fn create_entry(path: PathBuf, metadata: std::fs::Metadata) -> FileEntry {
 
     FileEntry {
         path: path.clone(),
-        grid_name: truncate_text(&name_str, 10).into(),
         name: name_str.into(),
         is_dir,
         size_bytes,
@@ -378,32 +360,6 @@ pub fn get_size(path: &Path) -> u64 {
 mod tests {
     use super::*;
     use std::path::Path;
-
-    #[test]
-    fn test_truncate_text() {
-        // Length 29, Max 15.
-        // Available chars: 15 - 3 = 12 (Front 6, Back 6).
-        // First 6: "silver", Last 6: "2.flac"
-        assert_eq!(
-            truncate_text("silver_machine_live_1972.flac", 15),
-            "silver...2.flac"
-        );
-
-        // Length 17, Max 10.
-        // Available chars: 7 (Front 4, Back 3).
-        // First 4: "cala", Last 3: "old"
-        assert_eq!(truncate_text("calabiyaumanifold", 10), "cala...old");
-
-        // No truncation needed
-        assert_eq!(truncate_text("gong.ogg", 15), "gong.ogg");
-
-        // Exactly the max length
-        assert_eq!(truncate_text("spacemen3_drugs", 15), "spacemen3_drugs");
-
-        // Extremely small max length (available chars hits 0)
-        assert_eq!(truncate_text("euler", 2), "...");
-        assert_eq!(truncate_text("euler", 3), "...");
-    }
 
     #[test]
     fn test_resolve_mime_str() {
