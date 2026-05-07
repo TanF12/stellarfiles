@@ -557,6 +557,11 @@ pub fn handle(app: &mut FileApp, msg: SysMsg) -> Task<Message> {
                 app.fs.pending_fs_events.clear();
 
                 if has_events {
+                    app.ui.path_history.put(
+                        app.fs.current_dir.clone(),
+                        (app.ui.scroll_offset, app.ui.keyboard_cursor),
+                    );
+
                     return Task::perform(async {}, |_| {
                         cosmic::Action::App(Message::Nav(NavMsg::RefreshCurrentDir))
                     });
