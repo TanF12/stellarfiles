@@ -57,6 +57,7 @@ pub struct DiskInfo {
 pub struct FileEntry {
     pub path: PathBuf,
     pub name: Arc<str>,
+    pub grid_name: Arc<str>,
     pub is_dir: bool,
     pub size_bytes: u64,
     pub modified: std::time::SystemTime,
