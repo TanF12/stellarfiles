@@ -1,4 +1,5 @@
 use crate::errors::AppError;
+use std::collections::HashSet;
 use std::fs;
 use std::io::{Read, Write};
 #[cfg(target_os = "linux")]
@@ -24,7 +25,11 @@ impl<'a, R: Read> Read for ProgressReader<'a, R> {
             return Err(std::io::Error::other("Cancelled"));
         }
         let n = self.inner.read(buf)?;
+        if n == 0 {
+            return Ok(0);
+        }
         self.bytes_acc += n as u64;
+
         if self.last_report.elapsed().as_millis() > 50 {
             let _ = self.tx.send_blocking(crate::types::ProgressMsg::Update {
                 id: self.id,
@@ -88,18 +93,28 @@ pub async fn compress_path(
             ));
         }
 
-        let file = fs::File::create(&dest_path)?;
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&dest_path)?;
+
+        let buf_writer = std::io::BufWriter::with_capacity(4 * 1024 * 1024, file);
 
         if format == "zip" {
-            let mut zip = zip::ZipWriter::new(file);
+            let mut zip = zip::ZipWriter::new(buf_writer);
             let lvl = match level.as_str() {
                 "Fast" => 1,
                 "Maximum" => 9,
                 _ => 5,
             };
+
             let options = zip::write::SimpleFileOptions::default()
                 .compression_method(zip::CompressionMethod::Deflated)
-                .compression_level(Some(lvl));
+                .compression_level(Some(lvl))
+                .large_file(true);
+
+            let mut chunk_buf = vec![0u8; 4 * 1024 * 1024];
 
             if path.is_dir() {
                 for entry in walkdir::WalkDir::new(&path)
@@ -118,10 +133,11 @@ pub async fn compress_path(
                     if p.is_file() {
                         zip.start_file(name.to_string_lossy().into_owned(), options)
                             .map_err(|e| AppError::Archive(e.to_string()))?;
-                        let f = fs::File::open(p)?;
+
+                        let mut f = fs::File::open(p)?;
                         let file_name = name.to_string_lossy().into_owned();
                         let mut pr = ProgressReader {
-                            inner: f,
+                            inner: &mut f,
                             tx: &tx,
                             id,
                             file_name,
@@ -129,7 +145,17 @@ pub async fn compress_path(
                             bytes_acc: 0,
                             cancel: cancel.clone(),
                         };
-                        std::io::copy(&mut pr, &mut zip)?;
+
+                        loop {
+                            if cancel.load(Ordering::Relaxed) {
+                                return Err(AppError::Cancelled);
+                            }
+                            let n = std::io::Read::read(&mut pr, &mut chunk_buf)?;
+                            if n == 0 {
+                                break;
+                            }
+                            std::io::Write::write_all(&mut zip, &chunk_buf[..n])?;
+                        }
                     } else if p.is_dir() {
                         zip.add_directory(name.to_string_lossy().into_owned(), options)
                             .map_err(|e| AppError::Archive(e.to_string()))?;
@@ -141,10 +167,11 @@ pub async fn compress_path(
                     options,
                 )
                 .map_err(|e| AppError::Archive(e.to_string()))?;
-                let f = fs::File::open(&path)?;
+
+                let mut f = fs::File::open(&path)?;
                 let file_name = path.file_name().unwrap().to_string_lossy().into_owned();
                 let mut pr = ProgressReader {
-                    inner: f,
+                    inner: &mut f,
                     tx: &tx,
                     id,
                     file_name,
@@ -152,9 +179,21 @@ pub async fn compress_path(
                     bytes_acc: 0,
                     cancel: cancel.clone(),
                 };
-                std::io::copy(&mut pr, &mut zip)?;
+
+                loop {
+                    if cancel.load(Ordering::Relaxed) {
+                        return Err(AppError::Cancelled);
+                    }
+                    let n = std::io::Read::read(&mut pr, &mut chunk_buf)?;
+                    if n == 0 {
+                        break;
+                    }
+                    std::io::Write::write_all(&mut zip, &chunk_buf[..n])?;
+                }
             }
-            zip.finish().map_err(|e| AppError::Archive(e.to_string()))?;
+
+            let mut inner_writer = zip.finish().map_err(|e| AppError::Archive(e.to_string()))?;
+            inner_writer.flush()?;
         } else {
             let enc: Box<dyn std::io::Write> = if format == "tar.zst" {
                 let lvl = match level.as_str() {
@@ -163,7 +202,7 @@ pub async fn compress_path(
                     _ => 3,
                 };
                 Box::new(
-                    zstd::stream::Encoder::new(file, lvl)
+                    zstd::stream::Encoder::new(buf_writer, lvl)
                         .map_err(|e| AppError::Archive(e.to_string()))?
                         .auto_finish(),
                 )
@@ -173,7 +212,7 @@ pub async fn compress_path(
                     "Maximum" => flate2::Compression::best(),
                     _ => flate2::Compression::default(),
                 };
-                Box::new(flate2::write::GzEncoder::new(file, lvl))
+                Box::new(flate2::write::GzEncoder::new(buf_writer, lvl))
             };
 
             let mut tar = tar::Builder::new(enc);
@@ -238,7 +277,10 @@ pub async fn compress_path(
                 };
                 tar.append_data(&mut header, path.file_name().unwrap(), &mut pr)?;
             }
-            tar.finish()?;
+            let mut inner_writer = tar
+                .into_inner()
+                .map_err(|e| AppError::Archive(e.to_string()))?;
+            inner_writer.flush()?;
         }
         Ok(format!(
             "Successfully compressed to {}",
@@ -270,75 +312,121 @@ pub async fn extract_archive(
             return Ok("Extracted successfully".into());
         }
 
+        let mut created_dirs = HashSet::with_capacity(512);
+
         if ext == "zip" {
             let file = fs::File::open(&path)?;
+
+            #[cfg(target_os = "linux")]
+            unsafe {
+                libc::posix_fadvise(file.as_raw_fd(), 0, 0, libc::POSIX_FADV_RANDOM);
+            }
+
+            let reader = std::io::BufReader::with_capacity(128 * 1024, file);
             let mut archive =
-                zip::ZipArchive::new(file).map_err(|e| AppError::Archive(e.to_string()))?;
+                zip::ZipArchive::new(reader).map_err(|e| AppError::Archive(e.to_string()))?;
+
             let mut total_bytes = 0;
             for i in 0..archive.len() {
+                if cancel.load(Ordering::Relaxed) {
+                    return Err(AppError::Cancelled);
+                }
                 if let Ok(item) = archive.by_index(i) {
                     total_bytes += item.size();
                 }
             }
             let _ = tx.send_blocking(crate::types::ProgressMsg::Init { id, total_bytes });
 
+            let mut chunk_buf = vec![0u8; 4 * 1024 * 1024];
+
             for i in 0..archive.len() {
                 if cancel.load(Ordering::Relaxed) {
                     return Err(AppError::Cancelled);
                 }
+
                 let mut item = archive
                     .by_index(i)
                     .map_err(|e| AppError::Archive(e.to_string()))?;
 
-                let outpath = match item.enclosed_name() {
-                    Some(p) => safe_dest.join(p),
+                let p = match item.enclosed_name() {
+                    Some(name) => name,
                     None => continue,
                 };
 
-                if outpath.components().any(|c| {
-                    matches!(
-                        c,
-                        std::path::Component::ParentDir | std::path::Component::RootDir
-                    )
-                }) {
+                let outpath = safe_dest.join(&p);
+                let is_dir = item.is_dir() || (*item.name()).ends_with('/');
+
+                if is_dir {
+                    if created_dirs.insert(outpath.clone()) {
+                        fs::create_dir_all(&outpath).ok();
+                    }
                     continue;
+                } else if let Some(parent) = outpath.parent()
+                    && created_dirs.insert(parent.to_path_buf())
+                {
+                    fs::create_dir_all(parent).ok();
                 }
 
-                if (*item.name()).ends_with('/') {
-                    fs::create_dir_all(&outpath).ok();
-                } else {
-                    if let Some(p) = outpath.parent() {
-                        fs::create_dir_all(p).ok();
-                    }
-                    if outpath.is_dir() {
-                        fs::remove_dir_all(&outpath).ok();
-                    }
+                let mut outfile = fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&outpath)?;
 
-                    let mut outfile = fs::File::create(&outpath)?;
-                    let file_name = item.name().to_string();
+                let size = item.size();
 
-                    let mut pr = ProgressReader {
-                        inner: &mut item,
-                        tx: &tx,
-                        id,
-                        file_name,
-                        last_report: std::time::Instant::now(),
-                        bytes_acc: 0,
-                        cancel: cancel.clone(),
-                    };
-                    std::io::copy(&mut pr, &mut outfile)?;
+                #[cfg(target_os = "linux")]
+                unsafe {
+                    let fd = outfile.as_raw_fd();
+                    libc::posix_fadvise(fd, 0, 0, libc::POSIX_FADV_SEQUENTIAL);
+                    if size > 0 {
+                        libc::fallocate(fd, 0, 0, size as libc::off_t);
+                    }
+                }
+
+                let file_name = item.name().to_string();
+                let mut pr = ProgressReader {
+                    inner: &mut item,
+                    tx: &tx,
+                    id,
+                    file_name,
+                    last_report: std::time::Instant::now(),
+                    bytes_acc: 0,
+                    cancel: cancel.clone(),
+                };
+
+                loop {
+                    if cancel.load(Ordering::Relaxed) {
+                        return Err(AppError::Cancelled);
+                    }
+                    let n = std::io::Read::read(&mut pr, &mut chunk_buf)?;
+                    if n == 0 {
+                        break;
+                    }
+                    std::io::Write::write_all(&mut outfile, &chunk_buf[..n])?;
+                }
+
+                #[cfg(target_os = "linux")]
+                unsafe {
+                    libc::posix_fadvise(outfile.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED);
                 }
             }
-        } else if ext == "gz" || ext == "tgz" || ext == "zst" {
+        } else if ext == "gz" || ext == "tgz" || ext == "zst" || ext == "tar" {
             let file = fs::File::open(&path)?;
             let total_bytes = file.metadata().map(|m| m.len()).unwrap_or(0);
             let _ = tx.send_blocking(crate::types::ProgressMsg::Init { id, total_bytes });
+
+            #[cfg(target_os = "linux")]
+            unsafe {
+                libc::posix_fadvise(file.as_raw_fd(), 0, 0, libc::POSIX_FADV_SEQUENTIAL);
+            }
 
             let file_name = path
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned();
+
             let pr = ProgressReader {
                 inner: file,
                 tx: &tx,
@@ -353,14 +441,15 @@ pub async fn extract_archive(
                 let dec =
                     zstd::stream::Decoder::new(pr).map_err(|e| AppError::Archive(e.to_string()))?;
                 tar::Archive::new(Box::new(dec) as Box<dyn std::io::Read>)
-            } else {
+            } else if ext == "gz" || ext == "tgz" {
                 let gz = flate2::read::GzDecoder::new(pr);
                 tar::Archive::new(Box::new(gz) as Box<dyn std::io::Read>)
+            } else {
+                tar::Archive::new(Box::new(pr) as Box<dyn std::io::Read>)
             };
 
             archive.set_unpack_xattrs(false);
-
-            let mut chunk_buf = vec![0u8; 2 * 1024 * 1024];
+            let mut chunk_buf = vec![0u8; 4 * 1024 * 1024];
 
             for entry in archive.entries()? {
                 if cancel.load(Ordering::Relaxed) {
@@ -387,32 +476,49 @@ pub async fn extract_archive(
                 }
 
                 let outpath = safe_dest.join(&p);
+
                 if entry.header().entry_type().is_dir() {
-                    fs::create_dir_all(&outpath).ok();
-                } else {
-                    if let Some(par) = outpath.parent() {
-                        fs::create_dir_all(par).ok();
+                    if created_dirs.insert(outpath.clone()) {
+                        fs::create_dir_all(&outpath).ok();
                     }
-                    if outpath.is_dir() {
-                        fs::remove_dir_all(&outpath).ok();
-                    }
-                    let mut outfile = fs::File::create(&outpath)?;
+                    continue;
+                } else if let Some(par) = outpath.parent()
+                    && created_dirs.insert(par.to_path_buf())
+                {
+                    fs::create_dir_all(par).ok();
+                }
 
-                    #[cfg(target_os = "linux")]
-                    unsafe {
-                        libc::posix_fadvise(outfile.as_raw_fd(), 0, 0, libc::POSIX_FADV_SEQUENTIAL);
-                    }
+                let mut outfile = fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&outpath)?;
 
-                    loop {
-                        if cancel.load(Ordering::Relaxed) {
-                            return Err(AppError::Cancelled);
-                        }
-                        let n = entry.read(&mut chunk_buf)?;
-                        if n == 0 {
-                            break;
-                        }
-                        outfile.write_all(&chunk_buf[..n])?;
+                let size = entry.header().size().unwrap_or(0);
+
+                #[cfg(target_os = "linux")]
+                unsafe {
+                    let fd = outfile.as_raw_fd();
+                    libc::posix_fadvise(fd, 0, 0, libc::POSIX_FADV_SEQUENTIAL);
+                    if size > 0 {
+                        libc::fallocate(fd, 0, 0, size as libc::off_t);
                     }
+                }
+
+                loop {
+                    if cancel.load(Ordering::Relaxed) {
+                        return Err(AppError::Cancelled);
+                    }
+                    let n = std::io::Read::read(&mut entry, &mut chunk_buf)?;
+                    if n == 0 {
+                        break;
+                    }
+                    std::io::Write::write_all(&mut outfile, &chunk_buf[..n])?;
+                }
+
+                #[cfg(target_os = "linux")]
+                unsafe {
+                    libc::posix_fadvise(outfile.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED);
                 }
             }
         }
