@@ -552,29 +552,21 @@ pub fn handle(app: &mut FileApp, msg: SysMsg) -> Task<Message> {
             )
         }
         SysMsg::ProcessDebouncedFsEvents(version) => {
-            if version == app.fs.fs_debounce_version && !app.fs.pending_fs_events.is_empty() {
-                let mut entries = (*app.fs.entries).clone();
-                let current_dir = app.fs.current_dir.clone();
-                let mut modified = false;
+            if version == app.fs.fs_debounce_version {
+                let has_events = !app.fs.pending_fs_events.is_empty();
+                app.fs.pending_fs_events.clear();
 
-                for event in app.fs.pending_fs_events.drain(..) {
-                    modified |=
-                        crate::file_ops::watcher::apply_delta(&mut entries, event, &current_dir);
-                }
-
-                if modified {
-                    app.fs.entries = std::sync::Arc::new(entries);
-                    let sort_task =
-                        app.sort_and_filter_entries(std::sync::Arc::clone(&app.fs.entries));
-                    let listen_task = Task::perform(async {}, |_| {
+                if has_events {
+                    return Task::perform(async {}, |_| {
+                        cosmic::Action::App(Message::Nav(NavMsg::RefreshCurrentDir))
+                    });
+                } else {
+                    return Task::perform(async {}, |_| {
                         cosmic::Action::App(Message::Sys(SysMsg::ListenFilesystem))
                     });
-                    return Task::batch(vec![sort_task, listen_task]);
                 }
             }
-            Task::perform(async {}, |_| {
-                cosmic::Action::App(Message::Sys(SysMsg::ListenFilesystem))
-            })
+            Task::none()
         }
         SysMsg::ThumbnailsLoaded(thumbs) => {
             if let Ok(mut cache) = app.ui.thumbnails.try_borrow_mut() {
