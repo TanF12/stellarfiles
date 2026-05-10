@@ -561,6 +561,8 @@ dependencies = [
  "cexpr",
  "clang-sys",
  "itertools",
+ "log",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
@@ -751,12 +753,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
+name = "bytesize"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bd91ee7b2422bcb158d90ef4d14f75ef67f340943fc4149891dcce8f8b972a3"
+
+[[package]]
 name = "bzip2"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3a53fac24f34a81bc9954b5d6cfce0c21e18ec6959f44f56e8e90e4bb7c346c"
 dependencies = [
  "libbz2-rs-sys",
+]
+
+[[package]]
+name = "bzip3"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9090f9972d76f35fc3cef4650614d1877ab970bc125c45fe3cad2e0213fb6e3"
+dependencies = [
+ "byteorder",
+ "bytesize",
+ "clap",
+ "libbzip3-sys",
+ "rayon",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -3052,6 +3074,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a6a8c165077efc8f3a971534c50ea6a1a18b329ef4a66e897a7e3a1494565f"
 
 [[package]]
+name = "libbzip3-sys"
+version = "0.5.1+1.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2a00fe0cfbd644674a56106ec593014b3f95e94c185fd5d4a75c397cd3b0805"
+dependencies = [
+ "bindgen",
+ "cc",
+ "cfg-if",
+ "regex",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5090,10 +5124,11 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stellarfiles"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "anyhow",
  "async-channel",
+ "bzip3",
  "chrono",
  "clap",
  "dirs",
@@ -5101,8 +5136,10 @@ dependencies = [
  "flate2",
  "fuzzy-matcher",
  "image",
+ "libbzip3-sys",
  "libc",
  "libcosmic",
+ "log",
  "lru 0.18.0",
  "md-5",
  "memmap2",
@@ -5400,9 +5437,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.52.2"
+version = "1.52.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "110a78583f19d5cdb2c5ccf321d1290344e71313c6c37d43520d386027d18386"
+checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
 dependencies = [
  "bytes",
  "libc",

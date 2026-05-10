@@ -339,7 +339,8 @@ pub fn handle(app: &mut FileApp, msg: FileMsg) -> Task<Message> {
             if let Some(target) = app.ui.compress_wizard.take() {
                 match sanitize_filename(&app.ui.compress_name_input) {
                     Ok(safe_name) => {
-                        let name = format!("{}.{}", safe_name, app.ui.compress_format);
+                        let name = safe_name;
+
                         let id = app.tasks.next_task_id;
                         app.tasks.next_task_id += 1;
                         let cancel_token = Arc::new(AtomicBool::new(false));
@@ -358,16 +359,20 @@ pub fn handle(app: &mut FileApp, msg: FileMsg) -> Task<Message> {
                             },
                         );
                         let tx = app.progress_tx.clone();
+                        let paths: Vec<std::path::PathBuf> =
+                            app.fs.selected_files.iter().cloned().collect();
                         Task::perform(
                             crate::file_ops::archive::compress_path(
-                                target,
-                                name,
-                                app.ui.compress_format.clone(),
-                                app.ui.compress_level.clone(),
-                                app.fs.current_dir.clone(),
-                                tx,
-                                id,
-                                cancel_token,
+                                crate::file_ops::archive::CompressOptions {
+                                    paths,
+                                    dest_name: name.to_string(),
+                                    format: app.ui.compress_format.clone(),
+                                    level: app.ui.compress_level.clone(),
+                                    current_dir: app.fs.current_dir.clone(),
+                                    tx,
+                                    id,
+                                    cancel: cancel_token,
+                                },
                             ),
                             move |res| {
                                 cosmic::Action::App(Message::Task(TaskMsg::CommandFinished(

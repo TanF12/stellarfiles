@@ -259,24 +259,63 @@ pub fn handle(app: &mut FileApp, msg: UIMsg) -> Task<Message> {
             Task::none()
         }
         UIMsg::OpenCompressWizard(path) => {
-            app.ui.close_modals();
-            app.ui.compress_wizard = Some(path.clone());
-            app.ui.compress_name_input = path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned();
-            app.ui.compress_format = "zip".to_string();
-            app.ui.compress_level = "Normal".to_string();
-            Task::none()
+            app.ui.context_menu = None;
+            let count = app.fs.selected_files.len();
+
+            let base_name = if count > 1 {
+                "Archive".to_string()
+            } else {
+                let mut stem = path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned();
+
+                let exts = [".tar", ".gz", ".zst", ".bz3", ".zip", ".7z", ".iso"];
+                for ext in &exts {
+                    if stem.ends_with(ext) {
+                        stem = stem[..stem.len() - ext.len()].to_string();
+                    }
+                }
+                stem
+            };
+
+            let extension = match app.ui.compress_format.as_str() {
+                "tar.gz" => ".tar.gz",
+                "tar.zst" => ".tar.zst",
+                "tar.bz3" => ".tar.bz3",
+                "7z" => ".7z",
+                _ => ".zip",
+            };
+
+            app.ui.compress_name_input = format!("{}{}", base_name, extension);
+            app.ui.compress_wizard = Some(path);
+            cosmic::app::Task::none()
         }
         UIMsg::CompressNameChanged(n) => {
             app.ui.compress_name_input = n;
             Task::none()
         }
         UIMsg::CompressFormatChanged(f) => {
+            let get_ext = |format: &str| match format {
+                "tar.gz" => ".tar.gz",
+                "tar.zst" => ".tar.zst",
+                "tar.bz3" => ".tar.bz3",
+                "7z" => ".7z",
+                _ => ".zip",
+            };
+
+            let old_ext = get_ext(&app.ui.compress_format);
+            let new_ext = get_ext(&f);
+
             app.ui.compress_format = f;
-            Task::none()
+
+            if app.ui.compress_name_input.ends_with(old_ext) {
+                let base_name = app.ui.compress_name_input.trim_end_matches(old_ext);
+                app.ui.compress_name_input = format!("{}{}", base_name, new_ext);
+            }
+
+            cosmic::app::Task::none()
         }
         UIMsg::CompressLevelChanged(l) => {
             app.ui.compress_level = l;

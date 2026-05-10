@@ -91,7 +91,7 @@ pub fn render(app: &FileApp) -> Option<Element<'_, Message>> {
                         .to_string_lossy()
                         .to_lowercase();
                     let is_archive =
-                        ["zip", "tar", "gz", "tgz", "7z", "zst"].contains(&ext.as_str());
+                        ["zip", "tar", "gz", "tgz", "7z", "zst", "bz3"].contains(&ext.as_str());
                     col = col.push(btn(
                         "Open",
                         Message::Sys(SysMsg::ActivateFile(path.clone())),
@@ -502,6 +502,7 @@ pub fn render(app: &FileApp) -> Option<Element<'_, Message>> {
             "zip".to_string(),
             "tar.gz".to_string(),
             "tar.zst".to_string(),
+            "tar.bz3".to_string(),
             "7z".to_string(),
         ];
         let levels: Vec<String> = vec![
